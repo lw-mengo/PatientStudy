@@ -52,14 +52,12 @@ namespace PatientStudy.Views.Windows
             Application.Current.Shutdown();
         }
 
-        INavigationView INavigationWindow.GetNavigation()
-        {
-            throw new NotImplementedException();
-        }
+        INavigationView INavigationWindow.GetNavigation() => GetNavigation();
 
         public void SetServiceProvider(IServiceProvider serviceProvider)
         {
-            throw new NotImplementedException();
+            // Wpf.Ui may call this through INavigationWindow during activation.
+            // The page provider is already configured in constructor, so this is intentionally a no-op.
         }
     }
 }

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PatientStudy.Views.Pages;
 using PatientStudy.Views.Windows;
-using System.Diagnostics;
+using System.Windows.Threading;
 using Wpf.Ui;
 
 namespace PatientStudy.Services
@@ -46,6 +46,12 @@ namespace PatientStudy.Services
         /// </summary>
         private async Task HandleActivationAsync()
         {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                // Keep app alive while login dialog is the only open window.
+                Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            });
+
             var loginWindow = _serviceProvider.GetService(typeof(LoginWindow)) as LoginWindow;
             if (loginWindow != null)
             {
@@ -57,6 +63,7 @@ namespace PatientStudy.Services
                     return;
                 }
             }
+
             // 登录成功后显示主窗口并导航到起始页
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -65,12 +72,22 @@ namespace PatientStudy.Services
                 {
                     _navigationWindow = (_serviceProvider.GetService(typeof(INavigationWindow)) as INavigationWindow)!;
                     _navigationWindow!.ShowWindow();
-                    _navigationWindow.Navigate(typeof(DashboardPage));
+
+                    if (_navigationWindow is Window mainWindow)
+                    {
+                        Application.Current.MainWindow = mainWindow;
+                        Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
+                    }
+
+                    Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+                    {
+                        _logger.LogInformation("Navigating to dashboard after main window is loaded.");
+                        _navigationWindow.Navigate(typeof(DashboardPage));
+                    });
                 }
             });
 
             await Task.CompletedTask;
-
         }
     }
 }

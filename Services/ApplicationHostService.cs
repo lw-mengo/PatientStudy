@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using PatientStudy.Views.Pages;
 using PatientStudy.Views.Windows;
 using System.Diagnostics;
+using System.Windows.Threading;
 using Wpf.Ui;
 
 namespace PatientStudy.Services
@@ -46,6 +47,11 @@ namespace PatientStudy.Services
         /// </summary>
         private async Task HandleActivationAsync()
         {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                // Keep app alive while login dialog is the only open window.
+                Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            });
             var loginWindow = _serviceProvider.GetService(typeof(LoginWindow)) as LoginWindow;
             if (loginWindow != null)
             {
@@ -56,19 +62,27 @@ namespace PatientStudy.Services
                     Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown());
                     return;
                 }
-            }
-            // 登录成功后显示主窗口并导航到起始页
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                _logger.LogInformation("Login successful, opening main window.");
-                if (!Application.Current.Windows.OfType<MainWindow>().Any())
-                {
-                    _navigationWindow = (_serviceProvider.GetService(typeof(INavigationWindow)) as INavigationWindow)!;
-                    _navigationWindow!.ShowWindow();
-                    _navigationWindow.Navigate(typeof(DashboardPage));
+                else { 
+                    _logger.LogInformation("User logged in successfully.");
+                    // 登录成功后显示主窗口并导航到起始页
+                   
+                        _logger.LogInformation("Login successful, opening main window.");
+                        if (!Application.Current.Windows.OfType<MainWindow>().Any())
+                        {
+                            _navigationWindow = (_serviceProvider.GetService(typeof(INavigationWindow)) as INavigationWindow)!;
+                            _navigationWindow!.ShowWindow();
+                            if (_navigationWindow is Window mainWindow)
+                            {
+                                Application.Current.MainWindow = mainWindow;
+                                Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
+                            }   
+                            {
+                                _logger.LogInformation("Navigating to dashboard after main window is loaded.");
+                                _navigationWindow.Navigate(typeof(DashboardPage));
+                            }
+                        }
                 }
-            });
-
+            }
             await Task.CompletedTask;
 
         }

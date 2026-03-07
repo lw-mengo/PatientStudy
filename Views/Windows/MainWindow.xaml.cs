@@ -56,6 +56,7 @@ namespace PatientStudy.Views.Windows
         {
             throw new NotImplementedException();
         }
+     
 
         public void SetServiceProvider(IServiceProvider serviceProvider)
         {

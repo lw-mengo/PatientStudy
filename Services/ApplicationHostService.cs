@@ -47,44 +47,59 @@ namespace PatientStudy.Services
         /// </summary>
         private async Task HandleActivationAsync()
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            _logger.LogInformation("ShutdownMode set to OnExplicitShutdown.");
+
+            var loginWindow = _serviceProvider.GetRequiredService<LoginWindow>();
+
+            _logger.LogInformation("Showing login dialog.");
+            bool? loginResult = loginWindow.ShowDialog();
+
+            _logger.LogInformation("Login dialog closed. Result: {Result}", loginResult);
+
+            if (loginResult != true)
             {
-                // Keep app alive while login dialog is the only open window.
-                Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            });
-            var loginWindow = _serviceProvider.GetService(typeof(LoginWindow)) as LoginWindow;
-            if (loginWindow != null)
-            {
-                var result = loginWindow.ShowDialog();
-                _logger.LogInformation("Login dialog result: {Result}", result);
-                if (result != true)
-                {
-                    Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown());
-                    return;
-                }
-                else { 
-                    _logger.LogInformation("User logged in successfully.");
-                    // 登录成功后显示主窗口并导航到起始页
-                   
-                        _logger.LogInformation("Login successful, opening main window.");
-                        if (!Application.Current.Windows.OfType<MainWindow>().Any())
-                        {
-                            _navigationWindow = (_serviceProvider.GetService(typeof(INavigationWindow)) as INavigationWindow)!;
-                            _navigationWindow!.ShowWindow();
-                            if (_navigationWindow is Window mainWindow)
-                            {
-                                Application.Current.MainWindow = mainWindow;
-                                Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
-                            }   
-                            {
-                                _logger.LogInformation("Navigating to dashboard after main window is loaded.");
-                                _navigationWindow.Navigate(typeof(DashboardPage));
-                            }
-                        }
-                }
+                _logger.LogInformation("Login cancelled or failed. Application will shutdown.");
+                ShutdownApplication();
+                return;
             }
+
+            _logger.LogInformation("Login succeeded. Preparing main window.");
+
+            _navigationWindow = _serviceProvider.GetRequiredService<INavigationWindow>();
+
+            if (_navigationWindow is not Window mainWindow)
+            {
+                _logger.LogError("Resolved INavigationWindow is not a WPF Window.");
+                ShutdownApplication();
+                return;
+            }
+
+            Application.Current.MainWindow = mainWindow;
+
+            _logger.LogInformation("Showing main window.");
+            _navigationWindow.ShowWindow();
+
+            Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
+            _logger.LogInformation("ShutdownMode switched to OnMainWindowClose.");
+
+            _logger.LogInformation("Navigating to DashboardPage.");
+            _navigationWindow.Navigate(typeof(DashboardPage));
+
             await Task.CompletedTask;
 
+        }
+        private void ShutdownApplication()
+        {
+            if (Application.Current.Dispatcher.CheckAccess())
+            {
+                Application.Current.Shutdown();
+            }
+            else
+            {
+                Application.Current.Dispatcher.Invoke(Application.Current.Shutdown);
+            }
         }
     }
 }
